@@ -35,17 +35,17 @@ class City:
 
 
 # %%
-c1, c2, c3, c4 = City(), City(), City(), City()
-c1.x, c1.y, c1.z = 2, 1, 0
-c2.x, c2.y, c2.z = -4, -5, 6
-c3.x, c3.y, c3.z = 0, 0, 0
-c4.x, c4.y, c4.z = 1, 1, 1
-cities = [c1, c2, c3, c4]
+# c1, c2, c3, c4 = City(), City(), City(), City()
+# c1.x, c1.y, c1.z = 2, 1, 0
+# c2.x, c2.y, c2.z = -4, -5, 6
+# c3.x, c3.y, c3.z = 0, 0, 0
+# c4.x, c4.y, c4.z = 1, 1, 1
+# cities = [c1, c2, c3, c4]
+cities_count = 10
+cities = [City() for x in range(cities_count)]
 mx_size = len(cities)**2
-drop_ix1 = np.random.choice(
-    range(len(cities)), int(0.2 * mx_size), replace=False)
-drop_ix2 = np.random.choice(
-    range(len(cities)), int(0.2 * mx_size), replace=False)
+drop_ix1 = np.random.choice(range(len(cities)), int(0.2 * mx_size))
+drop_ix2 = np.random.choice(range(len(cities)), int(0.2 * mx_size))
 # It is slightly more than 80%, because A-A drops are also included
 drop_edges_ix = [x for x in zip(drop_ix1, drop_ix2)]
 drop_edges_ix
@@ -72,7 +72,7 @@ asym_aff_mx
 
 def drop_edges(aff_mx, edges):
     drop_aff_mx = np.copy(aff_mx)
-    for c1, c2 in zip(drop_ix1, drop_ix2):
+    for c1, c2 in edges:
         drop_aff_mx[c1][c2] = np.inf
     return drop_aff_mx
 
