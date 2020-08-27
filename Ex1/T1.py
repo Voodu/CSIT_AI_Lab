@@ -2,7 +2,6 @@
 # To add a new markdown cell, type '# %% [markdown]'
 # %%
 import numpy as np
-from numpy.matrixlib.defmatrix import mat
 # %%
 
 
@@ -140,9 +139,9 @@ def bfs(start, aff_mx):
     return paths
 
 # %%
-
-
 def path_cost(path, aff_mx):
+    if len(path) != len(aff_mx):
+        return np.inf
     sum = 0
     for i in range(1, len(path)):
         sum += aff_mx[path[i-1]][path[i]]
@@ -175,14 +174,14 @@ def nn(start, aff_mx):
     while len(path) != len(aff_mx):
         cur = path[-1]
         cur_neighbors = [x for x in neighbors(cur, aff_mx) if x not in path]
+        if not cur_neighbors:
+            break
         city = closest_city_naive(cur, cur_neighbors, aff_mx)
         path.append(city)
     return path
 
 # %%
-from functools import reduce
 
-unvisited = list(True for x in cities)
 def dijkstra(start, aff_mx):
     def dijkstra_raw(source, matrix):
         def closest(queue, distances):
@@ -192,16 +191,9 @@ def dijkstra(start, aff_mx):
                     min_dist, min_ix = distances[v], ix
             return min_ix
         
-        print("\nDijkstra with")
-        print("source:", source)
-        print("matrix:\n", matrix)
-        global unvisited
-        unvisited[source] = False
         q, dist = [], []
-        # prev = []
         for i in range(len(matrix)):
             dist.append(np.inf)
-            # prev.append(np.nan)
             q.append(i)
         dist[source] = 0
         
@@ -213,84 +205,39 @@ def dijkstra(start, aff_mx):
                 alt = dist[u] + matrix[u][v]
                 if alt < dist[v]:
                     dist[v] = alt
-                    # prev[v] = u
         return dist
     def drop_connections(ix, matrix):
-        print("Dropping", ix)
         for i, _ in enumerate(matrix[ix]):
             matrix[ix][i] = np.inf
         for other in matrix:
             other[ix] = np.inf
-        print(matrix)
         return matrix
 
-    work_matrix = np.copy(matrix)
+    work_matrix = np.copy(aff_mx)
     sum = 0
     index = start
-    closest = np.inf
-    result = dijkstra_raw(index, work_matrix)
-    work_matrix = drop_connections(index, work_matrix) 
-    # [0, 10.392304845413264, 3.1462643699419726, 1.4142135623730951]
-    # take the lowest value != 0 and its index
-    # 1.4142135623730951
-    for i, path in enumerate(result):
-        if path < closest and path != 0:
-            index, closest = i, path
-    sum += closest
+    path = [start]
 
-    # add value to path sum
-    # [inf, 9.27, 1.73, 0]
-    closest = np.inf
-    result = dijkstra_raw(index, work_matrix)
-    work_matrix = drop_connections(index, work_matrix) 
-    for i, path in enumerate(result):
-        if path < closest and path != 0:
-            index, closest = i, path
-    sum += closest
-
-    closest = np.inf
-    result = dijkstra_raw(index, work_matrix)
-    work_matrix = drop_connections(index, work_matrix) 
-    for i, path in enumerate(result):
-        if path < closest and path != 0:
-            index, closest = i, path
-    sum += closest
-    
-    closest = np.inf
-    result = dijkstra_raw(index, work_matrix)
-    work_matrix = drop_connections(index, work_matrix) 
-    for i, path in enumerate(result):
-        if path < closest and path != 0:
-            index, closest = i, path
-    if closest == np.inf:
-        sum += matrix[index][start]
-    print(sum)
-    # take lowest
-    # 1.73
-    # sum = 3.14, index = 2
-    # print(work_matrix) 
-    # dijkstra(index, work_matrix)
-    # [inf, 8.77, 0, inf]
-    # take lowest
-    # 8.77
-    # sum = 11.91, index = 1
-    # work_matrix = drop_connections(index, work_matrix) 
-    # dijkstra(index, work_matrix)
-    # [inf, 0, inf, inf]
-    # take the lowest value != 0
-    # None -> return sum + work_matrix[index][start]
-
-    return dijkstra_raw(start, aff_mx)
+    while True:
+        closest = np.inf
+        result = dijkstra_raw(index, work_matrix)
+        work_matrix = drop_connections(index, work_matrix) 
+        for i, next in enumerate(result):
+            if next < closest and next != 0:
+                index, closest = i, next
+        if closest == np.inf: # close the path
+            return ((sum + aff_mx[index][start] if len(path) == len(aff_mx) else np.inf), path)
+        sum += closest
+        path.append(index)
 
 
-
+# %%
 matrix = drop_asym_aff_mx
-# path = []
-# while True in unvisited:
-dijkstra(0, matrix)
-# path_cost(nn(0, matrix), matrix)
-    
-# shortest_path(dfs(0, matrix), matrix)
+
+print("Dijkstra", dijkstra(0, matrix))
+print("NN", (path_cost(nn(0, matrix), matrix), nn(0, matrix)))
+print("DFS", shortest_path(dfs(0, matrix), matrix))
+print("BFS", shortest_path(bfs(0, matrix), matrix))
 
 
 # %%
