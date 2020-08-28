@@ -35,20 +35,20 @@ class City:
 
 
 # %%
-# c1, c2, c3, c4 = City(), City(), City(), City()
-# c1.x, c1.y, c1.z = 2, 1, 0
-# c2.x, c2.y, c2.z = -4, -5, 6
-# c3.x, c3.y, c3.z = 0, 0, 0
-# c4.x, c4.y, c4.z = 1, 1, 1
-# cities = [c1, c2, c3, c4]
-cities_count = 10
-cities = [City() for x in range(cities_count)]
+c1, c2, c3, c4 = City(), City(), City(), City()
+c1.x, c1.y, c1.z = 2, 1, 0
+c2.x, c2.y, c2.z = -4, -5, 6
+c3.x, c3.y, c3.z = 0, 0, 0
+c4.x, c4.y, c4.z = 1, 1, 1
+cities = [c1, c2, c3, c4]
+# starting_city = 0
+# cities_count = 10
+# cities = [City() for x in range(cities_count)]
 mx_size = len(cities)**2
 drop_ix1 = np.random.choice(range(len(cities)), int(0.2 * mx_size))
 drop_ix2 = np.random.choice(range(len(cities)), int(0.2 * mx_size))
 # It is slightly more than 80%, because A-A drops are also included
 drop_edges_ix = [x for x in zip(drop_ix1, drop_ix2)]
-drop_edges_ix
 
 
 # %%
@@ -68,8 +68,6 @@ for i, city1 in enumerate(cities):
 asym_aff_mx
 
 # %%
-
-
 def drop_edges(aff_mx, edges):
     drop_aff_mx = np.copy(aff_mx)
     for c1, c2 in edges:
@@ -86,32 +84,16 @@ drop_asym_aff_mx = drop_edges(asym_aff_mx, drop_edges_ix)
 drop_asym_aff_mx
 
 # %%
-
-
 def is_connected(c1, c2, aff_mx):
     return not (np.isinf(aff_mx[c1][c2]) or aff_mx[c1][c2] == 0)
-
 
 def neighbors(city, aff_mx):
     for i in range(len(cities)):
         if is_connected(city, i, aff_mx):
             yield i
 
-
 # %%
 mapdict = {i: chr(v) for i, v in enumerate(range(ord('A'), ord('Z')+1))}
-
-# recursive
-# def dfs(start, aff_mx, visited=[], cur_path=[], paths=[]):
-#     cur_path.append(start)
-#     visited.append(start)
-#     for n in neighbors(start, aff_mx):
-#         if n not in visited:
-#             dfs(n, aff_mx, visited[:], cur_path[:], paths)
-#     if len(cur_path) == len(aff_mx):
-#         paths.append(cur_path)
-#     return paths
-
 
 def dfs(start, aff_mx):
     paths, stack = [], [[start]]
@@ -124,7 +106,6 @@ def dfs(start, aff_mx):
         if stack and len(stack[-1]) == len(aff_mx):
             paths.append(stack[-1])
     return paths
-
 
 def bfs(start, aff_mx):
     paths, queue = [], [[start]]
@@ -168,7 +149,6 @@ def closest_city_naive(start, cities, aff_mx):
             closest_city, closest_distance = city, distance
     return closest_city
 
-
 def nn(start, aff_mx):
     path = [start]
     while len(path) != len(aff_mx):
@@ -181,7 +161,6 @@ def nn(start, aff_mx):
     return path
 
 # %%
-
 def dijkstra(start, aff_mx):
     def dijkstra_raw(source, matrix):
         def closest(queue, distances):
@@ -230,14 +209,48 @@ def dijkstra(start, aff_mx):
         sum += closest
         path.append(index)
 
-
 # %%
 matrix = drop_asym_aff_mx
+starting_city = 0
 
-print("Dijkstra", dijkstra(0, matrix))
-print("NN", (path_cost(nn(0, matrix), matrix), nn(0, matrix)))
-print("DFS", shortest_path(dfs(0, matrix), matrix))
-print("BFS", shortest_path(bfs(0, matrix), matrix))
+print("Dijkstra", dijkstra(starting_city, matrix))
+nn_r = nn(starting_city, matrix)
+print("NN", (path_cost(nn_r, matrix), nn_r))
+print("DFS", shortest_path(dfs(starting_city, matrix), matrix))
+print("BFS", shortest_path(bfs(starting_city, matrix), matrix))
 
+
+# %%
+from queue import PriorityQueue
+
+def raw_a_star(start, goal, aff_mx, h):
+    q = PriorityQueue()
+    q.put((0, start))
+    visited = set({start})
+    g_vals = [np.inf for _ in range(len(aff_mx))]
+    g_vals[start] = 0
+    f_vals = [np.inf for _ in range(len(aff_mx))]
+    f_vals[start] = h(start, goal)
+
+    while not q.empty():
+        _, current = q.get()
+        visited.add(current)
+        if current == goal:
+            return f_vals[goal] # CHECK IT
+        cur_neighbors = neighbors(current, aff_mx)
+        for n in cur_neighbors:
+            checked = g_vals[current] + aff_mx[current][n]
+            if checked < g_vals[n]:
+                g_vals[n] = checked
+                f_vals[n] = g_vals[n] + h(n, goal)
+                if n not in visited:
+                    q.put((f_vals[n], n))
+    return np.inf
+
+def euc_dist(a, b):
+    return cities[a].distance(cities[b])
+
+# %%
+raw_a_star(0, 3, matrix, euc_dist)
 
 # %%
