@@ -1,6 +1,3 @@
-# Introduction to Artificial Intelligence
-## Laboratory 1
-
 ### Exercise 1 Route searching 
 1.	Create a set of cities (as points) with coordinates x, y on a plane with height as z coordinate. The cost of going from city A to city B is equal to the Euclidean distance between two cities, if there exists a road. You should define scenarios according to two criteria: 
     1. There are all the direct connections / c.a. 80% of possible connections
