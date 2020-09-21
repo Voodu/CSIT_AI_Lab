@@ -1,5 +1,7 @@
+from State import State
 from Node import Node
 import numpy as np
+from queue import PriorityQueue
 
 class Graph:
 	def __init__(self, n_nodes=10, directional=False, full=True, fixed=True):
@@ -27,18 +29,34 @@ class Graph:
 		return not (np.isinf(self.get_distance(n1,n2)) or self.get_distance(n1,n2) == 0)
 
 	def neighbors(self, node):
+		n = []
 		for i in range(len(self.nodes)):
 			if self.is_connected(node, i):
-				yield i
-	
-	def path_cost(self, path):
-		if len(path) != self.nodes_count():
-			return np.inf
+				n.append(i)
+		return n
+
+	def get_all_edges(self):
+		edges = []
+		for i in range(len(self.matrix)):
+			for j in range(len(self.matrix[i])):
+				distance = self.get_distance(i, j)
+				if i != j and distance != np.inf:
+					edges.append((i, j, distance))
+		
+		return edges
+
+	def partial_path_cost(self, path):
 		sum = 0
 		for i in range(1, len(path)):
 			sum += self.get_distance(path[i-1], path[i])
-		sum += self.get_distance(path[-1], path[0]) # closing the cycle
 		return sum
+	
+	def full_path_cost(self, path):
+		if len(path) != self.nodes_count():
+			return np.inf
+		cost = self.partial_path_cost(path)
+		cost += self.get_distance(path[-1], path[0]) # closing the cycle
+		return cost
 
 	def dfs(self, start):
 		paths, stack = [], [[start]]
@@ -73,7 +91,7 @@ class Graph:
 				break
 			city = self.__closest_city_naive(cur, cur_neighbors)
 			path.append(city)
-		return self.path_cost(path), path
+		return self.full_path_cost(path), path
 
 	def __closest_city_naive(self, start, cities):
 		closest_city, closest_distance = start, np.inf
@@ -83,56 +101,28 @@ class Graph:
 				closest_city, closest_distance = city, distance
 		return closest_city
 
+	def a_star(self, start, heuristic):
+		states = PriorityQueue()
+		states.put((0, State([start], self.neighbors(start))))
+		current = states.get()
+		
+		while len(current[1].path) != self.nodes_count():
+			for neighbor in current[1].neighbors:
+				if neighbor not in current[1].path:
+					past_path = current[1].path + [neighbor]
+					c_path = past_path + [start]
+					g = self.partial_path_cost(c_path)
+					h = heuristic(c_path, self)
+					states.put((g + h, State(past_path, self.neighbors(neighbor))))
+			current = states.get()
+		
+		return current[0], current[1].path
+
 	def dijkstra(self, start):
-		def dijkstra_raw(source, matrix):
-			def closest(queue, distances):
-				min_dist, min_ix = np.inf, 0
-				for ix, v in enumerate(queue):
-					if distances[v] < min_dist:
-						min_dist, min_ix = distances[v], ix
-				return min_ix
-			
-			q, dist = [], []
-			for i in range(len(matrix)):
-				dist.append(np.inf)
-				q.append(i)
-			dist[source] = 0
-			
-			while q:
-				u = q.pop(closest(q, dist))
-				for v in self.neighbors(u):
-					if v not in q:
-						continue
-					alt = dist[u] + matrix[u][v]
-					if alt < dist[v]:
-						dist[v] = alt
-			return dist
-		def drop_connections(ix, matrix):
-			for i, _ in enumerate(matrix[ix]):
-				matrix[ix][i] = np.inf
-			for other in matrix:
-				other[ix] = np.inf
-			return matrix
+		return self.a_star(start, lambda a, b: 0)
 
-		work_matrix = np.copy(self.matrix)
-		sum = 0
-		index = start
-		path = [start]
-
-		while True:
-			closest = np.inf
-			result = dijkstra_raw(index, work_matrix)
-			work_matrix = drop_connections(index, work_matrix) 
-			for i, next in enumerate(result):
-				if next < closest and next != 0:
-					index, closest = i, next
-			if closest == np.inf: # close the path
-				return ((sum + self.get_distance(index, start) if len(path) == self.nodes_count() else np.inf), path)
-			sum += closest
-			path.append(index)
-
-	def aco(self, start):
-		def ant_route(start, pher_map, alpha, beta):
+	def aco(self, start, n_iter=20, n_ants=20):
+		def ant_path(start, pher_map, alpha, beta):
 			path = [start]
 			vis_map = np.divide(1, self.matrix)
 			# repeat until path does not cover all the nodes
@@ -141,7 +131,7 @@ class Graph:
 				neighbors = [n for n in self.neighbors(path[-1]) if n not in path]
 				# if there are none, then it is dead end
 				if not neighbors:
-					return path, np.inf 
+					return np.inf, path 
 				# calculate distance to all the neighbors
 				visibilities = [vis_map[path[-1]][n] for n in neighbors]
 				# calculate pheromone of all the neighbors
@@ -156,8 +146,7 @@ class Graph:
 				path.append(picked)
 			
 			# closing the cycle is done in self.path_cost
-
-			return self.path_cost(path), path
+			return self.full_path_cost(path), path
 
 		def update_map(pher_map, history, evapo_rate):
 			# history[i] = (route, cost) -> ([4, 5, 1, 3, 2], 43)
@@ -170,8 +159,6 @@ class Graph:
 			return pher_map
 
 		
-		n_iter = 10
-		n_ants = 10
 		alpha = 1
 		beta = 2
 		evapo_rate = .5
@@ -180,10 +167,10 @@ class Graph:
 		for it in range(n_iter):
 			history = []
 			for ant in range(n_ants):
-				cost, route = ant_route(start, pher_map, alpha, beta)
-				history.append((cost, route))
+				cost, path = ant_path(start, pher_map, alpha, beta)
+				history.append((cost, path))
 				if cost < best_record[0]:
-					best_record = (cost, route)
+					best_record = (cost, path)
 			pher_map = update_map(pher_map, history, evapo_rate)
 		
 		return best_record

@@ -1,84 +1,70 @@
 # %%
+from State import State
+from os import curdir
 from Graph import Graph
 import numpy as np
-np.random.seed(0)
-# %%
+np.random.seed(4)
 
-g_undir_full = Graph()
-g_undir_partial = Graph(full=False)
-g_dir_full = Graph(directional=True)
-g_dir_partial = Graph(full=False, directional=True)
+# %%
+g_undir_full = Graph(fixed=False)
+g_undir_partial = Graph(fixed=True, full=False)
+g_dir_full = Graph(fixed=True, directional=True)
+g_dir_partial = Graph(fixed=True, full=False, directional=True)
 
 # %%
 def shortest_path(paths, g):
     min_distance = np.inf
     min_path = []
     for path in paths:
-        distance = g.path_cost(path)
+        distance = g.full_path_cost(path)
         if distance < min_distance:
             min_distance, min_path = distance, path
     return min_distance, min_path
 
 # %%
-graph = g_dir_partial
+graph = g_undir_full
 starting_city = 0
 
-print("Dijkstra", graph.dijkstra(starting_city))
-print("NN", graph.nn(starting_city))
+# inadmissible - average of left edges * number of left steps
+# admissible - min of left edges * number of left steps
+
+def get_unvisited_edges(path, graph):
+    all_edges = graph.get_all_edges()
+    left_edges = []    
+    for edge in all_edges:
+        if edge[1] == path[0]: #entering start
+            if edge[0] not in path:
+                left_edges.append(edge)
+                continue
+        if edge[0] == path[-2]: #exiting the last
+            if edge[1] not in path:
+                left_edges.append(edge)
+                continue
+        if edge[0] not in path and edge[1] not in path:
+            left_edges.append(edge)
+    return left_edges
+
+def h_inadm(path, graph):
+    left_edges = get_unvisited_edges(path, graph)
+    if not left_edges:
+        return 0
+    mean = np.mean(left_edges, axis=0)[-1] # mean of the distances
+    return mean * (graph.nodes_count() - len(path) + 1)
+
+def h_adm(path, graph):
+    left_edges = get_unvisited_edges(path, graph)
+    if not left_edges:
+        return 0
+    minimum = np.min(left_edges, axis=0)[-1] # min of the distances
+    return minimum * (graph.nodes_count() - len(path) + 1)
+
+# %%
 print("DFS", shortest_path(graph.dfs(starting_city), graph))
 print("BFS", shortest_path(graph.bfs(starting_city), graph))
-print("ACO", graph.aco(starting_city))
-
-
-
-# %%
-from queue import PriorityQueue
-
-def raw_a_star(start, goal, g, h):
-    q = PriorityQueue()
-    q.put((0, start))
-    visited = set({start})
-    unvisited = set(range(len(g.matrix)))
-    unvisited.remove(start)
-    g_vals = [np.inf for _ in range(len(g.matrix))]
-    g_vals[start] = 0
-    f_vals = [np.inf for _ in range(len(g.matrix))]
-    f_vals[start] = h(start, goal, g)
-
-    while not q.empty():
-        _, current = q.get()
-        visited.add(current)
-        if current == goal:
-            return f_vals[goal] # CHECK IT
-        cur_neighbors = g.neighbors(current)
-        for n in cur_neighbors:
-            checked = g_vals[current] + g.matrix[current][n]
-            if checked < g_vals[n]:
-                g_vals[n] = checked
-                f_vals[n] = g_vals[n] + h(n, goal, g)
-                if n not in visited:
-                    q.put((f_vals[n], n))
-    return np.inf
-
-def euc_dist(a, b, g):
-    return g.nodes[a].distance(g.nodes[b])
-
-def h_tsp(current, start_city, unvisited_cities, aff_mx):
-    d1, d2, d3 = np.inf, np.inf, np.inf
-    # D1: distance to the nearest unvisited city from the current city
-    for city in unvisited_cities:
-        if aff_mx[current][city] < d1:
-            d1 = aff_mx[current][city]
-    # D2: estimated distance to travel all the unvisited cities (MST heuristic used here)
-    
-    # D3: nearest distance from an unvisited city to the start city
-    for city in unvisited_cities:
-        if aff_mx[city][start_city] < d3:
-            d3 = aff_mx[city][start_city]
-
-    return d1 + d2 + d3
-
-# %%
-raw_a_star(0, 3, graph, euc_dist)
+print("Dijkstra", graph.dijkstra(starting_city))
+print("NN", graph.nn(starting_city))
+print("ACO", graph.aco(starting_city, 40, 40))
+print("A* adm", graph.a_star(starting_city, h_adm))
+print("A* inadm", graph.a_star(starting_city, h_inadm))
 
 # %%
